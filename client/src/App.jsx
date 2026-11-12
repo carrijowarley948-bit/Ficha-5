@@ -1,21 +1,27 @@
+
 import { useState, useEffect } from "react";
 import Card from "./Card.jsx";
 
 function App() {
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // 1. Estado para guardar o erro
-  
+  const [error, setError] = useState(null);
+
   const [filter, setFilter] = useState("Todas");
   const [search, setSearch] = useState("");
   const [randomCard, setRandomCard] = useState(null);
   const [sorted, setSorted] = useState(false);
 
+  // Formulário da Ficha 5
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [attack, setAttack] = useState("");
+  const [formError, setFormError] = useState("");
+  const [sending, setSending] = useState(false);
+
   useEffect(() => {
-    // Podes testar mudar o URL para "http://localhost:3000/api/cartass" para ver o 404
     fetch("http://localhost:3000/api/cartas")
       .then((res) => {
-        // 2. Se o servidor responder com erro (ex: 404 ou 500), lançar um erro
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -23,18 +29,61 @@ function App() {
       })
       .then((data) => setCards(data))
       .catch((err) => {
-        // 3. Capturar o erro e guardá-lo no estado
         setError(err.message);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  // Se estiver a carregar
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    setFormError("");
+
+    const card = {
+      name,
+      type,
+      attack: Number(attack),
+      defense: 0
+    };
+
+    setSending(true);
+
+    fetch("http://localhost:3000/api/cartas", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(card)
+    })
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        return data;
+      })
+      .then((savedCard) => {
+        setCards([...cards, savedCard]);
+
+        setName("");
+        setType("");
+        setAttack("");
+        setFormError("");
+      })
+      .catch((err) => {
+        setFormError(err.message);
+      })
+      .finally(() => {
+        setSending(false);
+      });
+  }
+
   if (loading) {
     return <main><p>A carregar...</p></main>;
   }
 
-  // 4. Se houver um erro, mostrar a mensagem de erro
   if (error) {
     return <main><p>Erro: {error}</p></main>;
   }
@@ -53,12 +102,57 @@ function App() {
   }
 
   return (
-    <main>
+    <>
       <h1>A minha coleção</h1>
 
       <p>
         Tenho {cards.length} cartas · a mostrar {visible.length}
       </p>
+
+      <h2>Adicionar carta</h2>
+
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Nome:</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nome da carta"
+            required
+          />
+        </div>
+
+        <div>
+          <label>Tipo:</label>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            required
+          >
+            <option value="">Escolher tipo</option>
+            <option value="Criatura">Criatura</option>
+            <option value="Feitiço">Feitiço</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Ataque:</label>
+          <input
+            type="number"
+            value={attack}
+            onChange={(e) => setAttack(e.target.value)}
+            placeholder="Ataque"
+            min="0"
+            required
+          />
+        </div>
+
+        <button type="submit" disabled={sending}>
+          {sending ? "A enviar" : "Adicionar carta"}
+        </button>
+
+        {formError && <p>{formError}</p>}
+      </form>
 
       <div>
         <button onClick={() => setFilter("Todas")}>Todas</button>
@@ -87,13 +181,14 @@ function App() {
 
       <h2>Carta à sorte</h2>
       <button onClick={pickRandom}>Escolher outra</button>
+
       {randomCard && (
         <p>
-          <b>{randomCard.name}</b> — {randomCard.type} · ataque {randomCard.attack} ·
+          <b>{randomCard.name}</b> — {randomCard.type} ataque {randomCard.attack} ·
           defesa {randomCard.defense}
         </p>
       )}
-    </main>
+    </>
   );
 }
 

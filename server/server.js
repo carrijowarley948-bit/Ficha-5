@@ -1,15 +1,22 @@
+
 const express = require("express");
+const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const PORT = 3000;
 
-const cards = [
-  { name: "Dragão de Cobalto", type: "Criatura", attack: 7, defense: 5 },
-  { name: "Guardiã das Marés", type: "Criatura", attack: 4, defense: 8 },
-  { name: "Rito de Ferro", type: "Feitiço", attack: 0, defense: 0 },
-  { name: "Sentinela de Âmbar", type: "Criatura", attack: 6, defense: 6 },
-  { name: "Eco do Vazio", type: "Feitiço", attack: 0, defense: 0 },
-];
+const FILE = path.join(__dirname, "cartas.json");
+
+let cards = JSON.parse(fs.readFileSync(FILE, "utf8"));
+
+app.use(cors({ origin: "http://localhost:5173" }));
+app.use(express.json());
+
+function saveCards() {
+  fs.writeFileSync(FILE, JSON.stringify(cards, null, 2));
+}
 
 function page(title, body) {
   return `<!DOCTYPE html>
@@ -41,7 +48,7 @@ app.get("/", (req, res) => {
 app.get("/sobre", (req, res) => {
   res.send(page(
     "Sobre",
-    `<p>Feito por <b>&lt;nome do aluno&gt;</b>, turma &lt;turma&gt;.</p>`
+    `<p>Feito por <b>&lt;Warley&gt;</b>, turma &lt;TGPSI24U&gt;.</p>`
   ));
 });
 
@@ -53,27 +60,39 @@ app.get("/cartas", (req, res) => {
   res.send(page("Cartas", `<ul>${items}</ul>`));
 });
 
-app.get('/api/cartas', (req, res) => {
-  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
+app.get("/api/cartas", (req, res) => {
   res.json(cards);
 });
 
-app.use((req, res) => {
-  res.set("Access-Control-Allow-Origin", "http://localhost:5173");
-  res.status(404).send(page(
-    "404 — não encontrado",
-    `<p>Não existe nada em <code>${req.url}</code>.</p>
-     <p><a href="/">Voltar ao início</a></p>`
-  ));
+app.post("/api/cartas", (req, res) => {
+  const { name, type, attack, defense } = req.body;
+
+  if (!name || !type) {
+    return res.status(400).json({
+      error: "O nome e o tipo são obrigatórios."
+    });
+  }
+
+  const card = {
+    name,
+    type,
+    attack: Number(attack) || 0,
+    defense: Number(defense) || 0
+  };
+
+  cards.push(card);
+  saveCards();
+
+  res.status(201).json(card);
 });
 
-app.get('/cartas/aleatoria', (req, res) => {
+app.get("/cartas/aleatoria", (req, res) => {
   const card = cards[Math.floor(Math.random() * cards.length)];
 
   res.send(page(
-    "Carta à sorte",
+    "Carta aleatoria",
     `<h2>${card.name}</h2>
-     <p>${card.type} · ataque ${card.attack} · defesa ${card.defense}</p>`
+     <p>${card.type} · ataque ${card.attack} defesa ${card.defense}</p>`
   ));
 });
 
@@ -83,7 +102,7 @@ app.get("/agora", (req, res) => {
     timeStyle: "medium",
   });
 
-  res.send(page("Agora", `<p>Este pedido foi respondido às <b>${now}</b>.</p>`));
+  res.send(page("Agora", `<p>Este pedido foi respondido a <b>${now}</b>.</p>`));
 });
 
 app.use((req, res) => {
